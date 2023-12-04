@@ -66,6 +66,7 @@ pub fn pt1(input: String) {
     println!("Sum of parts: {}", part_nums.iter().fold(0, |a,b|a+b));
 }
 
+// Find *s with 2 nums adjacent, multiply nums, return sum of all
 pub fn pt2(input: String) {
     let lines: Vec<&str> = input.split("\r\n").collect();
     for (yidx, line) in lines.iter().enumerate() {
