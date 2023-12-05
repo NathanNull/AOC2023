@@ -6,7 +6,7 @@ use std::fs::read_to_string;
 
 const DAY: usize = 3;
 const PART: usize = 2;
-const IS_TEST: bool = true;
+const IS_TEST: bool = false;
 
 mod day1;
 mod day2;
