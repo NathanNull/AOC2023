@@ -36,7 +36,8 @@ pub fn pt1(input: String) {
     for (yidx, line) in lines.iter().enumerate() {
         let mut start_idx = -1;
         let v_row = valid_posns.get(yidx).unwrap();
-        let c_row: Vec<char> = line.chars().collect();
+        let mut c_row: Vec<char> = line.chars().collect();
+        c_row.push('.'); // So it'll end any nums on the end of the line
         for (xidx, char) in c_row.iter().enumerate() {
             if start_idx == -1 {
                 if char.is_digit(10) {
@@ -47,7 +48,7 @@ pub fn pt1(input: String) {
                     // Number is encompassed by start_idx..xidx
                     let mut part_num: String = "".to_owned();
                     let mut valid = 0;
-                    for idx in start_idx as usize..xidx {
+                    for idx in (start_idx as usize)..xidx {
                         valid += v_row[idx];
                         part_num.push_str(&c_row[idx].to_string());
                     }
@@ -56,9 +57,11 @@ pub fn pt1(input: String) {
                         part_nums.push(part_num.parse::<i32>().unwrap());
                     }
                     start_idx = -1;
+                    print!("{},", part_num);
                 }
             }
         }
+        println!();
     }
 
     println!("Sum of parts: {}", part_nums.iter().fold(0, |a, b| a + b));
@@ -104,7 +107,8 @@ pub fn pt2(input: String) {
     for (yidx, line) in lines.iter().enumerate() {
         let mut start_idx = -1;
         let v_row = &posns[yidx];
-        let c_row: Vec<char> = line.chars().collect();
+        let mut c_row: Vec<char> = line.chars().collect();
+        c_row.push('.');
         for (xidx, char) in c_row.iter().enumerate() {
             if start_idx == -1 {
                 if char.is_digit(10) {
@@ -123,7 +127,7 @@ pub fn pt2(input: String) {
                     gears.sort();
                     gears.dedup();
 
-                    if gears.len() > 2 {
+                    if gears.len() > 1 {
                         println!("huh");
                     }
 
