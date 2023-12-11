@@ -4,7 +4,7 @@ extern crate regex;
 use find_folder::Search;
 use std::fs::read_to_string;
 
-const DAY: usize = 7;
+const DAY: usize = 8;
 const PART: usize = 2;
 const IS_TEST: bool = false;
 
@@ -15,6 +15,7 @@ mod day4;
 mod day5;
 mod day6;
 mod day7;
+mod day8;
 
 fn main() {
     let days = [
@@ -25,6 +26,7 @@ fn main() {
         [day5::pt1, day5::pt2],
         [day6::pt1, day6::pt2],
         [day7::pt1, day7::pt2],
+        [day8::pt1, day8::pt2],
     ];
     let assets = Search::ParentsThenKids(3, 3).for_folder("inputs").unwrap();
     let input_path = assets.join(std::format!(
