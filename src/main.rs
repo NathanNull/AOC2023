@@ -5,8 +5,8 @@ use find_folder::Search;
 use std::fs::read_to_string;
 
 const DAY: usize = 10;
-const PART: usize = 1;
-const IS_TEST: bool = true;
+const PART: usize = 2;
+const IS_TEST: bool = false;
 
 mod day1;
 mod day2;

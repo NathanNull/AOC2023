@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 enum Dir {
@@ -27,58 +27,12 @@ impl Dir {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 enum Cell {
     Pipe([Dir; 2]),
     Blank,
     Start,
 }
-
-// impl Cell {
-//     fn _vis(&self) -> char {
-//         match self {
-//             Self::Blank => '.',
-//             Self::Start => 'S',
-//             Self::Pipe {
-//                 left: true,
-//                 up: false,
-//                 down: true,
-//                 right: false,
-//             } => '7',
-//             Self::Pipe {
-//                 left: true,
-//                 up: true,
-//                 down: false,
-//                 right: false,
-//             } => 'J',
-//             Self::Pipe {
-//                 left: false,
-//                 up: true,
-//                 down: false,
-//                 right: true,
-//             } => 'L',
-//             Self::Pipe {
-//                 left: false,
-//                 up: false,
-//                 down: true,
-//                 right: true,
-//             } => 'F',
-//             Self::Pipe {
-//                 left: true,
-//                 up: false,
-//                 down: false,
-//                 right: true,
-//             } => '-',
-//             Self::Pipe {
-//                 left: false,
-//                 up: true,
-//                 down: true,
-//                 right: false,
-//             } => '|',
-//             Self::Pipe { .. } => panic!("Invalid pipe type"),
-//         }
-//     }
-// }
 
 pub fn pt1(input: String) {
     main(input, true);
@@ -88,8 +42,8 @@ pub fn pt2(input: String) {
     main(input, false);
 }
 
-fn main(input: String, _pt1: bool) {
-    let pipes: HashMap<(i32, i32), Cell> = input
+fn main(input: String, pt1: bool) {
+    let mut pipes: HashMap<(i32, i32), Cell> = input
         .split("\r\n")
         .enumerate()
         .map(|(y, line)| {
@@ -104,8 +58,8 @@ fn main(input: String, _pt1: bool) {
                         '-' => Cell::Pipe([Dir::Right, Dir::Left]),
                         '|' => Cell::Pipe([Dir::Up, Dir::Down]),
                         'S' => Cell::Start,
-                        '.' => Cell::Blank,
-                        c => panic!("Invalid input! '{}'", c),
+                        _ => Cell::Blank, // Accept ., O, I, etc.
+                        //c => panic!("Invalid input! '{}'", c),
                     },
                 )
             })
@@ -122,39 +76,95 @@ fn main(input: String, _pt1: bool) {
     let mut last_dir = Dir::Down;
     for t in [Dir::Left, Dir::Right, Dir::Down, Dir::Up] {
         let offset = t.offset();
-        let (v,h) = (-offset.0, -offset.1);
+        let (h, v) = (-offset.0, -offset.1);
         let to_check = (pos.0 as i32 + h, pos.1 as i32 + v);
         if to_check.0 < 0 || to_check.1 < 0 {
             continue;
         }
-        match pipes
-            .get(&to_check)
-            .unwrap_or(&Cell::Blank)
-        {
+        match pipes.get(&to_check).unwrap_or(&Cell::Blank) {
             Cell::Pipe(dirs) if dirs.contains(&t) => {
                 pos = to_check;
                 last_dir = t;
-                println!("Pos: {pos:?}, dir: {t:?}");
+                //println!("Pos: {pos:?}, dir: {t:?}");
                 break;
             }
             _ => (),
         }
     }
 
+    let s_first = last_dir.opposite();
+
     let mut steps = 1;
+    let mut path: HashSet<(i32, i32)> = HashSet::new();
+    path.insert(pos);
     while pos != start_pos {
         let cell = pipes.get(&pos).unwrap_or(&Cell::Blank);
         match cell {
             Cell::Pipe(dirs) => {
                 let dir = dirs.iter().find(|&&d| d != last_dir).unwrap();
                 let offset = dir.offset();
-                pos = (pos.0+offset.0, pos.1+offset.1);
+                pos = (pos.0 + offset.0, pos.1 + offset.1);
                 last_dir = dir.opposite();
                 steps += 1;
-                println!("Pos: {pos:?}, dir: {dir:?}, offset: {offset:?}");
+                path.insert(pos);
+                //println!("Pos: {pos:?}, dir: {dir:?}, offset: {offset:?}");
             }
             _ => panic!("Derailed"),
         }
     }
-    println!("Took {steps} steps, furthest is {}", steps/2);
+
+    let s_second = last_dir;
+    pipes.insert(start_pos, Cell::Pipe([s_first, s_second]));
+
+    if pt1 {
+        println!("Took {steps} steps, furthest is {}", steps / 2);
+        return;
+    }
+
+    // P A I N
+    let mut enclosed = 0;
+    for y in 0..*pipes.keys().map(|(_, y)| y).max().unwrap() + 1 {
+        let mut outside = true;
+        let mut on_line = false;
+        let mut started_up = false;
+        let mut row: Vec<(&(i32, i32), &Cell)> =
+            pipes.iter().filter(|(&(_, ty), _)| ty == y).collect();
+        row.sort_by_key(|((x, _), _)| x);
+        for (pos, c) in row {
+            if !path.contains(pos) {
+                // Treat it like it's a blank
+                if !outside {
+                    enclosed += 1;
+                    print!("{:?}, ", pos);
+                }
+                continue;
+            }
+            match c {
+                Cell::Blank if !outside => {
+                    enclosed += 1;
+                    print!("{:?}, ", pos);
+                },
+                Cell::Pipe(dirs) if dirs.contains(&Dir::Up) || dirs.contains(&Dir::Down) => {
+                    if on_line {
+                        // This means either J or 7.
+                        on_line = false;
+                        if started_up == dirs.contains(&Dir::Down) {
+                            // If L---7 or F---J
+                            outside = !outside;
+                        }
+                    } else if dirs.contains(&Dir::Right) {
+                        // This means either L or F
+                        on_line = true;
+                        started_up = dirs.contains(&Dir::Up);
+                    } else {
+                        // This means |
+                        outside = !outside;
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
+    println!("\nInside pieces found: {}", enclosed)
 }
