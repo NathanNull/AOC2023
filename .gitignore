@@ -2,3 +2,4 @@
 /src/inputs/*
 !/src/inputs/*-test.txt
 *_copied.rs
+template.rs
