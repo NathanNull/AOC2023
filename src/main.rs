@@ -4,7 +4,7 @@ extern crate regex;
 use find_folder::Search;
 use std::fs::read_to_string;
 
-const DAY: usize = 12;
+const DAY: usize = 13;
 const PART: usize = 2;
 const IS_TEST: bool = false;
 
