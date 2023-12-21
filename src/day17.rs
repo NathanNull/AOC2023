@@ -1,4 +1,63 @@
-use std::collections::HashMap;
+use std::collections::BinaryHeap;
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+use Direction::*;
+impl Direction {
+    fn iter() -> Vec<Self> {
+        vec![Up, Down, Left, Right]
+    }
+    fn from_offset(offset: (i32, i32)) -> Self {
+        match offset {
+            (1, 0) => Right,
+            (-1, 0) => Left,
+            (0, 1) => Down,
+            (0, -1) => Up,
+            _ => panic!("Invalid offset"),
+        }
+    }
+    fn opposite(&self) -> Self {
+        match self {
+            Up => Down,
+            Down => Up,
+            Left => Right,
+            Right => Left,
+        }
+    }
+    fn index(&self) -> usize {
+        match self {
+            Up => 0,
+            Right => 1,
+            Down => 2,
+            Left => 3,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+struct Crucible {
+    pos: usize,
+    dir: Option<Direction>,
+    moves: usize,
+    cost: usize,
+}
+
+impl Ord for Crucible {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.cost.cmp(&self.cost)
+    }
+}
+
+impl PartialOrd for Crucible {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        other.cost.partial_cmp(&self.cost)
+    }
+}
 
 pub fn pt1(input: String) {
     main(input, true);
@@ -8,79 +67,114 @@ pub fn pt2(input: String) {
     main(input, false);
 }
 
-fn neighbours(b: (i32, i32), block_size: (i32, i32)) -> Vec<(i32, i32)> {
-    return [
-        (b.0 + 1, b.1),
-        (b.0 - 1, b.1),
-        (b.0, b.1 + 1),
-        (b.0, b.1 - 1),
-    ]
-    .iter()
-    .filter(|t| t.0 >= 0 && t.0 <= block_size.0 && t.1 >= 0 && t.1 <= block_size.1)
-    .map(|&t| t)
-    .collect();
-}
+// really irritating neighbours function
+// fn neighbours(cruc: Crucible, block_size: (i32, i32)) -> Vec<Crucible> {
+//     let b = cruc.pos;
+//     return [(1, 0), (-1, 0), (0, 1), (0, -1)]
+//         .iter()
+//         .map(|&t| {
+//             let dir = Direction::from_offset(t);
+//             let moves = if dir == cruc.dir {cruc.moves + 1} else { 1 };
+//             Crucible{pos: (b.0+t.0, b.1+t.1), dir, moves}
+//         })
+//         .filter(|t| t.pos.0 >= 0 && t.pos.0 <= block_size.0 && t.pos.1 >= 0 && t.pos.1 <= block_size.1)
+//         .filter(|c|c.moves <= 3)
+//         .collect();
+// }
 
-// Possibly A* isn't the ideal choice here, IDK
+// Djikstra's alg. to the rescue
+// (extra funny because technically 4d)
 fn main(input: String, pt1: bool) {
-    let blocks: Vec<Vec<i32>> = input
+    let blocks: Vec<Vec<usize>> = input
         .split("\r\n")
         .map(|row| {
             row.chars()
-                .map(|c| c.to_string().parse::<i32>().unwrap())
+                .map(|c| c.to_string().parse::<usize>().unwrap())
                 .collect()
         })
         .collect();
-    let block_ends = (blocks[0].len() as i32 - 1, blocks.len() as i32 - 1);
-    let avg = blocks.iter().flatten().sum::<i32>() / (block_ends.0+1) / (block_ends.1+1);
+    let block_size = (blocks[0].len() - 1, blocks.len() - 1);
 
-    let endpoint = block_ends;
-    // Basic Manhattan distance from endpoint, times average distance per block
-    let h = |tile: (i32, i32)| (i32::abs(tile.0-endpoint.0) + i32::abs(tile.1-endpoint.1)) * avg;
+    let endpoint = block_size;
+    let start = Crucible {
+        pos: 0,
+        dir: None,
+        moves: 0,
+        cost: 0,
+    };
+    let min_dist = if pt1 { 0 } else { 4 };
+    let max_dist = if pt1 { 3 } else { 10 };
 
-    let mut to_check: Vec<(i32, i32)> = Vec::new();
-    let mut came_from: HashMap<(i32, i32), (i32, i32)> = HashMap::new();
-    // stores (g,f) for every tile
-    let mut scores: HashMap<(i32, i32), (i32, i32)> = HashMap::new();
-    to_check.push((0, 0));
-    scores.insert((0, 0), (0, h((0,0))));
-
-    let mut completed = false;
-    while !to_check.is_empty() {
-        to_check.sort_by_key(|tile| {
-            let t_scores = scores.get(tile).unwrap();
-            -(t_scores.1*500-t_scores.0)
-        });
-        println!("To check: {:?}", to_check.iter().map(|t|(t,scores.get(t).unwrap())).collect::<Vec<_>>());
-        let curr = to_check.pop().unwrap();
-        println!("Checking {curr:?}");
-        if curr == endpoint {
-            completed = true;
-            break;
-        }
-
-        for n in neighbours(curr, block_ends) {
-            let trial_g = scores.get(&curr).unwrap().0 + blocks[n.1 as usize][n.0 as usize];
-            if scores.get(&n).unwrap_or(&(i32::MAX, i32::MAX)).0 > trial_g {
-                came_from.insert(n, curr);
-                scores.insert(n, (trial_g, trial_g+h(n)));
-            }
-            if !to_check.iter().any(|block|block==&n) {
-                to_check.push(n);
+    let mut to_check = BinaryHeap::<Crucible>::new();
+    // holds (visited, dist)
+    let mut history = vec![(false, usize::MAX); block_size.0 * block_size.1 * 4 * max_dist];
+    to_check.push(start);
+    while let Some(Crucible {
+        pos,
+        dir,
+        moves,
+        cost,
+    }) = to_check.pop()
+    {
+        match dir {
+            Some(d) => history[pos * 4 * max_dist + d.index() * max_dist + moves].0 = true,
+            None => {
+                for d in 0..4 {
+                    history[pos * 4 * max_dist + d * max_dist + moves].0 = true;
+                }
             }
         }
+        to_check.extend([Up, Right, Down, Left].iter().filter_map(|&d| {
+            let (same, opp) = match dir {
+                Some(pdir) => (pdir == d, pdir.opposite() == d),
+                None => (true, false),
+            };
+
+            if (moves < min_dist && !same)
+                || (moves > max_dist - 1 && same)
+                || opp
+                || match d {
+                    Up => pos < block_size.0,
+                    Right => pos % block_size.0 == block_size.0 - 1,
+                    Down => pos / block_size.0 == block_size.1 - 1,
+                    Left => pos % block_size.0 == 0,
+                }
+            {
+                return None;
+            }
+
+            let npos = match d {
+                Up => pos - block_size.0,
+                Right => pos + 1,
+                Down => pos + block_size.0,
+                Left => pos - 1,
+            };
+            let nmoves = 1 + if same { moves } else { 0 };
+            let nkey = npos * 4 * max_dist + d.index() * max_dist + nmoves;
+            let ncost = cost + blocks[npos / block_size.0][npos % block_size.0];
+            let (visited, prev_cost) = history[nkey];
+            if visited || prev_cost <= ncost {
+                return None;
+            }
+            history[nkey].1 = ncost;
+            Some(Crucible {
+                pos: npos,
+                dir: Some(d),
+                moves: nmoves,
+                cost: ncost,
+            })
+        }));
     }
-    if completed {
-        let mut path = Vec::new();
-        let mut curr = endpoint;
-        let mut heat_loss = blocks[curr.1 as usize][curr.0 as usize];
-        path.push(curr);
-        while came_from.contains_key(&curr) {
-            curr = *came_from.get(&curr).unwrap();
-            path.push(curr);
-            heat_loss += blocks[curr.1 as usize][curr.0 as usize];
-        }
-        path.reverse();
-        println!("Path is {:?}, heat loss is {}", path, heat_loss);
-    }
+
+    // why is this one higherrrrrr
+    // it's not an off-by-one, either, taking one off doesn't fix anything
+    // I have the wrong path somehow
+    println!(
+        "Min cost is {}",
+        history[(block_size.0*block_size.1 - 1) * 4 * max_dist..]
+            .iter()
+            .map(|(_visited, cost)| *cost)
+            .min()
+            .unwrap()-1
+    )
 }
