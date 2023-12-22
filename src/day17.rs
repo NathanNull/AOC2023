@@ -1,4 +1,4 @@
-use std::io::Read;
+//Man I hate Djikstra's alg
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum Direction {
