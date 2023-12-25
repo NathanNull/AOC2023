@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Part {
     x: usize,
     m: usize,
@@ -15,6 +15,16 @@ impl Part {
             'm' => self.m,
             'a' => self.a,
             's' => self.s,
+            _ => panic!("Invalid attr type"),
+        }
+    }
+
+    fn set(&mut self, atype: char, val: usize) {
+        match atype {
+            'x' => self.x = val,
+            'm' => self.m = val,
+            'a' => self.a = val,
+            's' => self.s = val,
             _ => panic!("Invalid attr type"),
         }
     }
@@ -95,38 +105,115 @@ fn main(input: String, pt1: bool) {
         (name, r_parsed)
     }));
 
-    let parts = sec2
-        .lines()
-        .map(|line| {
-            let [x, m, a, s] = first_n(&mut line.replace(['{', '}'], "").split(',').map(|val| {
-                first_n::<2, _>(&mut val.split('='))[1]
-                    .parse::<usize>()
-                    .unwrap()
-            }));
-            Part { x, m, a, s }
-        })
-        .collect::<Vec<_>>();
+    if pt1 {
+        let parts = sec2
+            .lines()
+            .map(|line| {
+                let [x, m, a, s] =
+                    first_n(&mut line.replace(['{', '}'], "").split(',').map(|val| {
+                        first_n::<2, _>(&mut val.split('='))[1]
+                            .parse::<usize>()
+                            .unwrap()
+                    }));
+                Part { x, m, a, s }
+            })
+            .collect::<Vec<_>>();
 
-    println!("Finished parsing data");
+        println!("Finished parsing data");
 
-    let mut completed: Vec<Part> = Vec::new();
-    for part in parts {
-        let mut curr_flow = "in";
-        while !["A","R"].contains(&curr_flow) {
-            let flow = workflows.get(curr_flow).unwrap();
-            for rule in flow {
-                if rule.op.test(&part) {
-                    curr_flow = &rule.output;
-                    break;
+        let mut completed: Vec<Part> = Vec::new();
+        for part in parts {
+            let mut curr_flow = "in";
+            while !["A", "R"].contains(&curr_flow) {
+                let flow = workflows.get(curr_flow).unwrap();
+                for rule in flow {
+                    if rule.op.test(&part) {
+                        curr_flow = &rule.output;
+                        break;
+                    }
                 }
             }
+            match curr_flow {
+                "A" => completed.push(part),
+                "R" => (),
+                _ => panic!("Wait what"),
+            }
         }
-        match curr_flow {
-            "A" => completed.push(part),
-            "R" => (),
-            _ => panic!("Wait what")
+
+        println!(
+            "Completed value: {:?}",
+            completed.iter().map(|p| p.value()).sum::<usize>()
+        );
+        return;
+    }
+
+    let mut p_sum = 0;
+    let mut queue = VecDeque::new();
+    queue.push_back((
+        Part {
+            x: 1,
+            m: 1,
+            a: 1,
+            s: 1,
+        },
+        Part {
+            x: 4000,
+            m: 4000,
+            a: 4000,
+            s: 4000,
+        },
+        "in",
+    ));
+    while let Some((rs, re, flow_name)) = queue.pop_front() {
+        if flow_name == "A" {
+            p_sum += i64::abs((rs.x as i64 - 1 - re.x as i64)
+                * (rs.m as i64 - 1 - re.m as i64)
+                * (rs.a as i64 - 1 - re.a as i64)
+                * (rs.s as i64 - 1 - re.s as i64)) as usize;
+            continue;
+        } else if flow_name == "R" {
+            continue;
+        }
+        let flow = workflows.get(flow_name).unwrap();
+        let (mut r_start, mut r_end) = (rs, re);
+        for rule in flow {
+            if let Some((ns, ne)) = match (rule.op.test(&r_start), rule.op.test(&r_end)) {
+                // All pass
+                (true, true) => {
+                    queue.push_back((r_start.clone(), r_end.clone(), &rule.output));
+                    None
+                }
+                // All fail
+                (false, false) => Some((r_start.clone(), r_end.clone())),
+                // Some pass, some fail
+                (s_in, _) => {
+                    let (os, oe, t, val) = match rule.op {
+                        Op::Greater(t, val) => (1, 0, t, val),
+                        Op::Lesser(t, val) => (0, -1, t, val),
+                        _ => panic!("How do you fail an accept"),
+                    };
+                    let mut new_s = r_start.clone();
+                    new_s.set(t, (val as i32 + os) as usize);
+                    let mut new_e = r_end.clone();
+                    new_e.set(t, (val as i32 + oe) as usize);
+                    if s_in {
+                        queue.push_back((r_start.clone(), new_e, &rule.output));
+                        Some((new_s, r_end.clone()))
+                    } else {
+                        queue.push_back((new_s, r_end.clone(), &rule.output));
+                        Some((r_start.clone(), new_e))
+                    }
+                }
+            } {
+                // If values were returned from that match, reset the range
+                r_start = ns;
+                r_end = ne;
+            } else {
+                // Otherwise everything must have passed
+                break;
+            }
         }
     }
 
-    println!("Completed value: {:?}", completed.iter().map(|p|p.value()).sum::<usize>());
+    println!("Sum: {p_sum}")
 }
