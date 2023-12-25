@@ -1,20 +1,5 @@
 use std::collections::HashMap;
-
-pub fn lcm(nums: &[i64]) -> i64 {
-    if nums.len() == 1 {
-        return nums[0];
-    }
-    let a = nums[0];
-    let b = lcm(&nums[1..]);
-    a * b / gcd_of_two_numbers(a, b)
-}
-
-fn gcd_of_two_numbers(a: i64, b: i64) -> i64 {
-    if b == 0 {
-        return a;
-    }
-    gcd_of_two_numbers(b, a % b)
-}
+use crate::helpers::lcm;
 
 pub fn pt1(input: String) {
     main(input, true);

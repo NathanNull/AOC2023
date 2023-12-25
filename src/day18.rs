@@ -1,3 +1,5 @@
+use crate::helpers::Direction;
+
 pub fn pt1(input: String) {
     main(input, true);
 }
@@ -5,41 +7,6 @@ pub fn pt1(input: String) {
 pub fn pt2(input: String) {
     main(input, false);
 }
-
-#[derive(Debug)]
-enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-use Direction::*;
-
-impl Direction {
-    fn from_char(c: char) -> Self {
-        match c {
-            'U' => Up,
-            'D' => Down,
-            'L' => Left,
-            'R' => Right,
-            _ => panic!("Invalid direction"),
-        }
-    }
-
-    fn offset(&self) -> (i64, i64) {
-        match self {
-            Up => (0, -1),
-            Down => (0, 1),
-            Right => (1, 0),
-            Left => (-1, 0),
-        }
-    }
-}
-
-//ans pt1 (for testing new approaches): 36725
-//TODO: Look up what the shoelace formula is, it seems useful
-// So's Pick's theorem apparently
-// Some neat math to look at here I think
 
 fn main(input: String, pt1: bool) {
     let instructions: Vec<_> = input

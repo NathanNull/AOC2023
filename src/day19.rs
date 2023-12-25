@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use crate::helpers::first_n;
 
 #[derive(Debug, Clone)]
 struct Part {
@@ -55,14 +56,6 @@ impl Op {
 struct Rule {
     op: Op,
     output: String,
-}
-
-fn first_n<const N: usize, T: Default + Copy>(iter: &mut impl Iterator<Item = T>) -> [T; N] {
-    let mut ret: [T; N] = [T::default(); N];
-    for idx in 0..N {
-        ret[idx] = iter.next().unwrap();
-    }
-    ret
 }
 
 pub fn pt1(input: String) {
